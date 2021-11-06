@@ -1,0 +1,8 @@
+/.vs
+/Debug
+/shaders
+/x64
+/src/labs
+/src/Main.cpp
+*.vcxproj*
+*.sln
