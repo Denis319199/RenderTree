@@ -7,20 +7,19 @@ ShaderProgram::ShaderProgram(const char *vertex_shader_path,
 
 bool ShaderProgram::CompileAndLinkShaders(const char *vertex_shader_path,
                                           const char *fragment_shader_path) {
-  if (!CompileShader(vertex_shader_path, GL_VERTEX_SHADER))
-    return false;
-  if (!CompileShader(fragment_shader_path, GL_FRAGMENT_SHADER))
-    return false;
-  if (!LinkShaders())
-    return false;
+  if (!CompileShader(vertex_shader_path, GL_VERTEX_SHADER)) return false;
+  if (!CompileShader(fragment_shader_path, GL_FRAGMENT_SHADER)) return false;
+  if (!LinkShaders()) return false;
 
   return true;
 }
 
 bool ShaderProgram::CompileShader(const char *shader_path, GLenum shader) {
   std::ifstream shader_file(shader_path);
-  if (!shader_file.is_open())
+  if (!shader_file.is_open()) {
+    std::cout << "file=\"" << shader_path << "\" cannot be opened\n";
     return false;
+  }
 
   shader_file.seekg(0, std::ios::end);
   std::size_t n_char = shader_file.tellg();
@@ -42,16 +41,17 @@ bool ShaderProgram::CompileShader(const char *shader_path, GLenum shader) {
   glGetShaderiv(compiled_shader, GL_COMPILE_STATUS, &success);
   if (!success) {
     glGetShaderInfoLog(compiled_shader, 512, nullptr, info_log);
-    switch (shader) { 
-    case GL_VERTEX_SHADER:
-        std::cout << "ERROR::VERTEX_SHADER::COMPILATION_FAILED\n";
+    std::cout << "Compilation error, shader=\"";
+    switch (shader) {
+      case GL_VERTEX_SHADER:
+        std::cout << "VERTEX_SHADER";
         break;
-    case GL_FRAGMENT_SHADER:
-      std::cout << "ERROR::FRAGMENT_SHADER::COMPILATION_FAILED\n";
-      break;
+      case GL_FRAGMENT_SHADER:
+        std::cout << "FRAGMENT_SHADER";
+        break;
     }
-    
-    std::cout << info_log << '\n';
+
+    std::cout << "\"\n" << info_log << '\n';
     return false;
   }
 

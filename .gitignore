@@ -3,6 +3,7 @@
 /shaders
 /x64
 /src/labs
+/src/test
 /src/Main.cpp
 *.vcxproj*
 *.sln

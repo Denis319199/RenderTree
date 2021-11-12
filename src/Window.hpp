@@ -1,16 +1,16 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 
-#include "RenderTree.hpp"
-#include "Usings.hpp"
+#include <iostream>
 #include <mutex>
 
-#include <iostream>
+#include "RenderTree.hpp"
+#include "Usings.hpp"
 
 namespace graphics {
 
 class Window {
-public:
+ public:
   static void InitTools() {
     if (!glfwInit()) {
       exit(1);
@@ -80,14 +80,16 @@ public:
     render_tree_->InsertAtRoot(tree_block);
   }
 
-private:
+  // private: FIXME!
   static void WindowCloseCallback(GLFWwindow *window) {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
   }
 
   static void CursorPosCallback(GLFWwindow *window, double pos_x,
                                 double pos_y) {
-    GetWindowObject(window)->render_tree_->ProcessMouseMovement(pos_x, pos_y);
+    auto render_tree_ptr{GetWindowObject(window)->render_tree_};
+    auto right_pos_y{render_tree_ptr->GetRootArea().height - pos_y};
+    render_tree_ptr->ProcessMouseMovement(pos_x, right_pos_y);
   }
 
   static void MouseButtonCallback(GLFWwindow *window, int button, int action,
@@ -113,9 +115,7 @@ private:
 
   static void CursorEnterCallback(GLFWwindow *window, int entered) {
     if (!entered) {
-      constexpr auto max_val{std::numeric_limits<SizeType>::max()};
-      GetWindowObject(window)->render_tree_->ProcessMouseMovement(max_val,
-                                                                  max_val);
+      GetWindowObject(window)->render_tree_->ProcessCursorEnter();
     }
   }
 
@@ -131,6 +131,6 @@ private:
   GLFWwindow *window_ptr_;
   RenderTree *render_tree_;
 };
-} // namespace graphics
+}  // namespace graphics
 
-#endif // WINDOW_HPP
+#endif  // WINDOW_HPP

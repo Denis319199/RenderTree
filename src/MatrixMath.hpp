@@ -60,6 +60,13 @@ Matrix<float> Scale(const Matrix<float> &mat, float factor) {
   return result *= mat;
 }
 
+float Length(const Matrix<float> &mat) { 
+  float x{mat[0][0]};
+  float y{mat[1][0]};
+  float z{mat[2][0]};
+  return std::sqrt(x * x + y * y + z * z);
+}
+
 } // namespace math
 
 #endif // MATRIX_MATH_HPP

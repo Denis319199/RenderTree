@@ -2,131 +2,90 @@
 #define TREEBLOCK_HPP
 
 #include "EventInfo.hpp"
+#include "RenderTreeInfo.hpp"
+#include "TreeBlockAreas.hpp"
 #include "TreeBlockHandler.hpp"
 #include "Usings.hpp"
 
 namespace graphics {
 
-struct Area {
-  SizeType pos_x;
-  SizeType pos_y;
-  SizeType width;
-  SizeType height;
-
-  bool operator==(const Area &other) {
-    if (other.pos_x != pos_x) {
-      return false;
-    }
-    if (other.pos_y != pos_y) {
-      return false;
-    }
-    if (other.width != width) {
-      return false;
-    }
-    if (other.height != height) {
-      return false;
-    }
-
-    return true;
-  }
-
-  bool operator!=(const Area &other) { return !(*this == other); }
-
-  bool DoesPointFallWithinArea(SizeType x, SizeType y) const noexcept {
-    auto max_pos_x{pos_x + width};
-    auto max_pos_y{pos_y + height};
-
-    if (x >= pos_x && x <= max_pos_x) {
-      if (y >= pos_y && y <= max_pos_y) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-};
-
 class RenderTree;
 
 class TreeBlock {
-public:
-  TreeBlock(TreeBlockHandlerBase *handler) : handler_{handler} {}
+ public:
+  TreeBlock(TreeBlockHandlerBase *handler) noexcept : handler_{handler} {}
 
-  void SetWidth(SizeType width);
+  void SetWidth(SizeType width) noexcept;
 
-  void SetHeight(SizeType height);
+  void SetHeight(SizeType height) noexcept;
 
-  void SetPosX(SizeType pos_x);
+  void SetRelativeNormalizedWidth(float width) noexcept;
 
-  void SetPosY(SizeType pos_y);
+  void SetRelativeNormalizedHeight(float height) noexcept;
 
-  void SetRelativePosX(SizeType pos_x);
+  void SetPosX(SizeType pos_x) noexcept;
 
-  void SetRelativePosY(SizeType pos_y);
+  void SetPosY(SizeType pos_y) noexcept;
 
-  void ActivateHoverRerender() { is_hover_activated_ = true; }
+  void SetRelativePosX(SizeType pos_x) noexcept;
 
-  void DisactivateHoverRerender() { is_hover_activated_ = false; }
+  void SetRelativePosY(SizeType pos_y) noexcept;
 
-  void RenderIsRequired();
+  void SetRelativeNormalizedPosX(float pos_x) noexcept;
 
-  bool IsHovered() const noexcept { return hover_; }
+  void SetRelativeNormalizedPosY(float pos_y) noexcept;
 
-  const Area &GetArea() const noexcept { return area_; }
+  void ActivateHoverRerender() noexcept;
 
-  const List<TreeBlock *> &GetChildrenList() const noexcept {
-    return children_list_;
-  }
+  void DisactivateHoverRerender() noexcept;
 
-private:
-  bool Render() {
-    if (handler_ != nullptr) { 
-      glViewport(area_.pos_x, area_.pos_y, area_.width, area_.height);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
-              GL_STENCIL_BUFFER_BIT);
-      
-      return handler_->Render(*this);
-    }
+  void RenderIsRequired() noexcept;
 
-    return false;
-  }
+  [[nodiscard]] bool IsHovered() const noexcept;
 
-  bool ProcessChangedArea();
+  [[nodiscard]] bool IsCursorOutOfWindow() const noexcept;
 
-  void ProcessHover();
+  [[nodiscard]] const Area &GetArea() const noexcept;
 
-  void ProcessMouseMovement(SizeType pos_x, SizeType pos_y);
+  [[nodiscard]] const MouseInfo &GetMouseInfo() const noexcept;
 
-  void ProcessMouseButton(MouseButtonEvent button_event);
+  [[nodiscard]] NormalizedArea GetRelaftiveNormalizedArea() const noexcept;
 
-  void ProcessMouseScroll(PtrDiff offset_x, PtrDiff offset_y) { 
-    if (handler_ != nullptr) {
-      handler_->ProcessMouseScroll(*this, offset_x, offset_y);
-    }
-  }
+  [[nodiscard]] const List<TreeBlock *> &GetChildrenList() const noexcept;
 
-  List<TreeBlock *> &GetChildrenList() { return children_list_; }
+ private:
+  [[nodiscard]] bool Render() const noexcept;
 
-  void CheckAndSetPosX(SizeType pos_x);
+  [[nodiscard]] bool ProcessChangedArea() noexcept;
 
-  void CheckAndSetPosY(SizeType pos_y);
+  void ProcessHover() noexcept;
 
-  void CheckHover();
+  void ProcessMouseMovement() noexcept;
+
+  void ProcessMouseButton() noexcept;
+
+  void ProcessMouseScroll() noexcept;
+
+  void CheckAndSetPosX(SizeType pos_x) noexcept;
+
+  void CheckAndSetPosY(SizeType pos_y) noexcept;
+
+  void CheckHover() noexcept;
 
   friend class RenderTree;
 
-  Area area_; // contains block's position and size
+  Area area_;  // contains block's position and size
   TreeBlock *parent_;
   List<TreeBlock *> children_list_;
   RenderTree *render_tree_;
   TreeBlockHandlerBase *handler_;
 
-  bool hover_; // if equals false, then a cursor is out of this block, otherwise
-               // a cursor is within
-  bool is_hover_activated_; // defines if is_render_required_ flag should be set
-                            // when hover_ changes its state
+  bool hover_;  // if equals false, then a cursor is out of this block,
+                // otherwise a cursor is within
+  bool is_hover_activated_;  // defines if is_render_required_ flag should be
+                             // set when hover_ changes its own state
 };
 
-} // namespace graphics
+}  // namespace graphics
 
-#endif // TREEBLOCK_HPP
+#endif  // TREEBLOCK_HPP
