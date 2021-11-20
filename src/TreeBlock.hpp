@@ -1,6 +1,8 @@
 #ifndef TREEBLOCK_HPP
 #define TREEBLOCK_HPP
 
+#include <cassert>
+
 #include "EventInfo.hpp"
 #include "RenderTreeInfo.hpp"
 #include "TreeBlockAreas.hpp"
@@ -13,7 +15,7 @@ class RenderTree;
 
 class TreeBlock {
  public:
-  TreeBlock(TreeBlockHandlerBase *handler) noexcept : handler_{handler} {}
+  TreeBlock(TreeBlockHandlerBase *handler) noexcept;
 
   void SetWidth(SizeType width) noexcept;
 
@@ -35,9 +37,13 @@ class TreeBlock {
 
   void SetRelativeNormalizedPosY(float pos_y) noexcept;
 
-  void ActivateHoverRerender() noexcept;
+  void EnableHoverRerender() noexcept;
 
-  void DisactivateHoverRerender() noexcept;
+  void DisableHoverRerender() noexcept;
+
+  void DisableCheckingHover() noexcept;
+
+  void EnableCheckingHover() noexcept;
 
   void RenderIsRequired() noexcept;
 
@@ -69,8 +75,6 @@ class TreeBlock {
   void CheckAndSetPosX(SizeType pos_x) noexcept;
 
   void CheckAndSetPosY(SizeType pos_y) noexcept;
-
-  void CheckHover() noexcept;
 
   friend class RenderTree;
 

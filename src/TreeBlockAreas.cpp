@@ -23,17 +23,20 @@ namespace graphics {
   return !(*this == other);
 }
 
-[[nodiscard]] bool Area::DoesPointFallWithinArea(SizeType x,
-                                                 SizeType y) const noexcept {
-  auto max_pos_x{pos_x + width};
-  auto max_pos_y{pos_y + height};
+[[nodiscard]] bool Area::DoesPointFallWithinArea(PtrDiff x,
+                                                 PtrDiff y) const noexcept {
+  if (x >= 0 && y >= 0) {
+    auto max_pos_x{pos_x + width};
+    auto max_pos_y{pos_y + height};
 
-  if (x >= pos_x && x <= max_pos_x) {
-    if (y >= pos_y && y <= max_pos_y) {
-      return true;
+    if (x >= pos_x && x <= max_pos_x) {
+      if (y >= pos_y && y <= max_pos_y) {
+        return true;
+      }
     }
   }
 
   return false;
 }
+
 }  // namespace graphics

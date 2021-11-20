@@ -15,8 +15,8 @@ struct Area {
 
   [[nodiscard]] bool operator!=(const Area &other) const noexcept;
 
-  [[nodiscard]] bool DoesPointFallWithinArea(SizeType x,
-                                             SizeType y) const noexcept;
+  [[nodiscard]] bool DoesPointFallWithinArea(PtrDiff x,
+                                             PtrDiff y) const noexcept;
 };
 
 struct NormalizedArea {
@@ -25,6 +25,7 @@ struct NormalizedArea {
   float width;
   float height;
 };
+
 }  // namespace graphics
 
 #endif  // TREEBLOCKAREAS_HPP

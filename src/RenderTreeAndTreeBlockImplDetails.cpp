@@ -8,12 +8,16 @@ namespace graphics {
 RenderTree::RenderTree(Area area, SizeType max_width, SizeType max_height,
                        TreeBlockHandlerBase *handler) noexcept
     : root_{new TreeBlock{handler}},
+      hovered_block_{},
       tree_info_{max_width, max_height},
+      is_render_required_{true},
+      check_hover_{true},
       fbo_{},
       texture_{},
       vao_{},
-      vbo_{},
-      shader_program_{} {
+      rectangle_vbo_{},
+      coords_vbo_{},
+      sp_{"./shaders/rtree/rtree.vs", "./shaders/rtree/rtree.fs"} {
   root_->SetPosX(area.pos_x);
   root_->SetPosY(area.pos_y);
   root_->SetWidth(area.width);
@@ -24,28 +28,12 @@ RenderTree::RenderTree(Area area, SizeType max_width, SizeType max_height,
   mouse_info.cursor_pos_x = max_val;
   mouse_info.cursor_pos_y = max_val;
 
-  InitShaders();
   CreateBuffers();
 }
 
 [[nodiscard]] bool RenderTree::Render() noexcept {
   if (is_render_required_) {
-    if (root_->handler_ == nullptr) {
-      const auto &area{root_->area_};
-      glViewport(area.pos_x, area.pos_y, area.width, area.height);
-      glClearColor(0.f, 0.f, 0.f, 0.f);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
-              GL_STENCIL_BUFFER_BIT);
-
-      BlendFBOAndFramebuffer(area);
-
-      const auto &children_list{root_->GetChildrenList()};
-      for (auto child : children_list) {
-        Render(child);
-      }
-    } else {
-      Render(root_);
-    }
+    Render(root_);
 
     // set back full-screen viewport
     const auto &cur_window_area{root_->area_};
@@ -54,7 +42,6 @@ RenderTree::RenderTree(Area area, SizeType max_width, SizeType max_height,
 
     // copy fbo into default back framebuffer
     glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glBlitFramebuffer(cur_window_area.pos_x, cur_window_area.pos_y,
                       cur_window_area.pos_x + cur_window_area.width,
                       cur_window_area.pos_y + cur_window_area.height,
@@ -63,6 +50,11 @@ RenderTree::RenderTree(Area area, SizeType max_width, SizeType max_height,
                       cur_window_area.pos_y + cur_window_area.height,
                       GL_COLOR_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo_);
+    glClearColor(0.f, 0.f, 0.f, 0.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     is_render_required_ = false;
     return true;
@@ -80,13 +72,16 @@ void RenderTree::InsertAtRoot(TreeBlock *block) noexcept {
   const auto &mouse_info{tree_info_.mouse_info};
   if (block->area_.DoesPointFallWithinArea(mouse_info.cursor_pos_x,
                                            mouse_info.cursor_pos_y)) {
+    hovered_block_->ProcessHover();
+    hovered_block_ = block;
+    block->ProcessHover();
   }
 
   root_->children_list_.push_back(block);
   is_render_required_ = true;
 }
 
-void RenderTree::ProcessCursorEnter() noexcept {
+void RenderTree::ProcessCursorLeaveWindow() noexcept {
   auto &mouse_info{tree_info_.mouse_info};
   mouse_info.cursor_pos_x_diff = 0.f;
   mouse_info.cursor_pos_y_diff = 0.f;
@@ -95,19 +90,28 @@ void RenderTree::ProcessCursorEnter() noexcept {
   mouse_info.cursor_pos_x = max_val;
   mouse_info.cursor_pos_y = max_val;
 
-  root_->ProcessMouseMovement();
-  auto &children_list{root_->GetChildrenList()};
-  for (auto &child : children_list) {
-    ProcessMouseMovement(child);
+  if (check_hover_ && hovered_block_) {
+    hovered_block_->ProcessHover();
+    hovered_block_ = nullptr;
   }
+  root_->ProcessHover();
 }
 
 void RenderTree::ProcessMouseMovement(PtrDiff pos_x, PtrDiff pos_y) noexcept {
   auto &mouse_info{tree_info_.mouse_info};
+
+  constexpr auto max_val{std::numeric_limits<PtrDiff>::max()};
+  auto old_cursor_pos_x{mouse_info.cursor_pos_x};
+
   mouse_info.cursor_pos_x_diff = pos_x - mouse_info.cursor_pos_x;
   mouse_info.cursor_pos_y_diff = pos_y - mouse_info.cursor_pos_y;
   mouse_info.cursor_pos_x = pos_x;
   mouse_info.cursor_pos_y = pos_y;
+
+  if (old_cursor_pos_x == max_val) {
+    root_->ProcessHover();
+  }
+  CheckHover();
 
   root_->ProcessMouseMovement();
   auto &children_list{root_->GetChildrenList()};
@@ -135,7 +139,6 @@ void RenderTree::ChangeArea(Area area) noexcept {
 
 void RenderTree::ProcessMouseMovement(TreeBlock *block) noexcept {
   block->ProcessMouseMovement();
-  block->CheckHover();
 
   auto &children_list{block->GetChildrenList()};
   for (auto &child : children_list) {
@@ -183,6 +186,57 @@ void RenderTree::Render(TreeBlock *block) noexcept {
   }
 }
 
+TreeBlock *RenderTree::FindHoveredBlock(TreeBlock *block) const noexcept {
+  if (block->children_list_.empty()) {
+    return nullptr;
+  }
+
+  auto iter{block->children_list_.rbegin()};
+  auto end_iter{block->children_list_.rend()};
+  const auto &mouse_info{tree_info_.mouse_info};
+
+  while (iter != end_iter) {
+    if ((*iter)->area_.DoesPointFallWithinArea(mouse_info.cursor_pos_x,
+                                               mouse_info.cursor_pos_y)) {
+      if (auto result{FindHoveredBlock(*iter)}; result) {
+        return result;
+      } else {
+        return *iter;
+      }
+    }
+    ++iter;
+  }
+}
+
+void RenderTree::CheckHover() noexcept {
+  if (!check_hover_) {
+    return;
+  }
+
+  auto &mouse_info{tree_info_.mouse_info};
+
+  if (!hovered_block_) {  // case when the curosor entered the window
+    hovered_block_ = FindHoveredBlock(root_);
+    if (hovered_block_) {
+      hovered_block_->ProcessHover();
+    }
+  } else if (hovered_block_->area_.DoesPointFallWithinArea(
+                 mouse_info.cursor_pos_x, mouse_info.cursor_pos_y)) {
+    auto possible_hovered_block{FindHoveredBlock(root_)};
+    if (possible_hovered_block != hovered_block_) {
+      hovered_block_->ProcessHover();
+      hovered_block_ = possible_hovered_block;
+      hovered_block_->ProcessHover();
+    }
+  } else {
+    hovered_block_->ProcessHover();
+    hovered_block_ = FindHoveredBlock(root_);
+    if (hovered_block_) {
+      hovered_block_->ProcessHover();
+    }
+  }
+}
+
 ////////////IMPLEMENTATION OF THE DEPENDENT PART OF CLASS TreeBlock////////////
 
 void TreeBlock::SetWidth(SizeType width) noexcept {
@@ -198,8 +252,10 @@ void TreeBlock::SetWidth(SizeType width) noexcept {
 
     if (old_width != area_.width) {
       CheckAndSetPosX(area_.pos_x);
-      CheckHover();
-      render_tree_->is_render_required_ = true;
+      if (render_tree_) {
+        render_tree_->CheckHover();
+        render_tree_->is_render_required_ = true;
+      }
     }
   } else {
     area_.width = width;
@@ -219,8 +275,10 @@ void TreeBlock::SetHeight(SizeType height) noexcept {
 
     if (old_height != area_.height) {
       CheckAndSetPosY(area_.pos_y);
-      CheckHover();
-      render_tree_->is_render_required_ = true;
+      if (render_tree_) {
+        render_tree_->CheckHover();
+        render_tree_->is_render_required_ = true;
+      }
     }
   } else {
     area_.height = height;
@@ -233,8 +291,8 @@ void TreeBlock::SetPosX(SizeType pos_x) noexcept {
 
     CheckAndSetPosX(pos_x);
 
-    if (old_pos_x != area_.pos_x) {
-      CheckHover();
+    if (render_tree_ && old_pos_x != area_.pos_x) {
+      render_tree_->CheckHover();
       render_tree_->is_render_required_ = true;
     }
   } else {
@@ -248,8 +306,8 @@ void TreeBlock::SetPosY(SizeType pos_y) noexcept {
 
     CheckAndSetPosY(pos_y);
 
-    if (old_pos_y != area_.pos_y) {
-      CheckHover();
+    if (render_tree_ && old_pos_y != area_.pos_y) {
+      render_tree_->CheckHover();
       render_tree_->is_render_required_ = true;
     }
   } else {
@@ -258,10 +316,16 @@ void TreeBlock::SetPosY(SizeType pos_y) noexcept {
 }
 
 void TreeBlock::RenderIsRequired() noexcept {
+  assert(render_tree_ &&
+         "Error in an invocation of the RenderIsRequired method. There is no "
+         "RenderTree object binded to a block");
   render_tree_->is_render_required_ = true;
 }
 
 [[nodiscard]] const MouseInfo &TreeBlock::GetMouseInfo() const noexcept {
+  assert(render_tree_ &&
+         "Error in an invocation of the GetMouseInfo method.There is no "
+         "RenderTree object binded to a block");
   return render_tree_->tree_info_.mouse_info;
 }
 
@@ -277,27 +341,27 @@ void TreeBlock::ProcessHover() noexcept {
   }
 }
 
-void TreeBlock::CheckHover() noexcept {
-  const auto &mouse_info{render_tree_->tree_info_.mouse_info};
-
-  if (mouse_info.cursor_pos_x > 0 && mouse_info.cursor_pos_y > 0) {
-    if (area_.DoesPointFallWithinArea(mouse_info.cursor_pos_x, mouse_info.cursor_pos_y) 
-      /*area_.pos_x <= mouse_info.cursor_pos_x &&
-        area_.pos_x + area_.width >= mouse_info.cursor_pos_x &&
-        area_.pos_y <= mouse_info.cursor_pos_y &&
-        area_.pos_y + area_.height >= mouse_info.cursor_pos_y*/) {
-      if (!hover_) {
-        ProcessHover();
-      }
-    } else if (hover_) {
-      ProcessHover();
-    }
-  }
-}
-
 [[nodiscard]] bool TreeBlock::IsCursorOutOfWindow() const noexcept {
+  assert(render_tree_ &&
+         "Error in an invocation of the IsCursorOutOfWindow method.There is no "
+         "RenderTree object binded to a block");
   constexpr auto max_val{std::numeric_limits<PtrDiff>::max()};
   return render_tree_->tree_info_.mouse_info.cursor_pos_x == max_val;
+}
+
+void TreeBlock::DisableCheckingHover() noexcept {
+  assert(
+      render_tree_ &&
+      "Error in an invocation of the DisableCheckingHover method.There is no "
+      "RenderTree object binded to a block");
+  render_tree_->DisableCheckingHover();
+}
+
+void TreeBlock::EnableCheckingHover() noexcept {
+  assert(render_tree_ &&
+         "Error in an invocation of the EnableCheckingHover method.There is no "
+         "RenderTree object binded to a block");
+  render_tree_->EnableCheckingHover();
 }
 
 }  // namespace graphics

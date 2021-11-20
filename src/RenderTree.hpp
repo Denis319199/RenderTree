@@ -5,6 +5,7 @@
 
 #include "EventInfo.hpp"
 #include "RenderTreeInfo.hpp"
+#include "ShaderProgram.hpp"
 #include "TreeBlockAreas.hpp"
 #include "TreeBlockHandler.hpp"
 #include "Usings.hpp"
@@ -31,7 +32,7 @@ class RenderTree {
 
   void InsertAtRoot(TreeBlock *block) noexcept;
 
-  void ProcessCursorEnter() noexcept;
+  void ProcessCursorLeaveWindow() noexcept;
 
   void ProcessMouseMovement(PtrDiff pos_x, PtrDiff pos_y) noexcept;
 
@@ -52,39 +53,36 @@ class RenderTree {
 
   void ProcessMouseScroll(TreeBlock *block) noexcept;
 
-  void InitShaders() noexcept;
-
   void CreateBuffers() noexcept;
 
   void Render(TreeBlock *block) noexcept;
 
   void BlendFBOAndFramebuffer(const Area &area) noexcept;
 
+  void DisableCheckingHover() noexcept;
+
+  void EnableCheckingHover() noexcept;
+
+  void CheckHover() noexcept;
+
+  TreeBlock *FindHoveredBlock(TreeBlock *block) const noexcept;
+
   friend TreeBlock;
 
   TreeBlock *root_;  // points to special window based block
+  TreeBlock *hovered_block_;
   TreeInfo tree_info_;
 
   bool is_render_required_;
+  bool check_hover_;
 
-  GLuint fbo_;      // buffer is to store result of previous rendering
-  GLuint texture_;  // texture is attached to fbo
-  GLuint vao_;      // vao for the texture rectangle
-  GLuint vbo_;      // stores verteces for the texture rectangle
-  GLuint vs_object_;
-  GLuint fs_object_;
-  GLuint shader_program_;
+  GLuint fbo_;            // buffer is to store result of previous rendering
+  GLuint texture_;        // texture is attached to fbo
+  GLuint vao_;            // vao
+  GLuint rectangle_vbo_;  // stores verteces for the texture rectangle
+  GLuint coords_vbo_;
 
-  const char *vs_code =
-      "#version 450 core\n"
-      "layout(location = 0) in vec2 vertex;\n"
-      "void main() { gl_Position = vec4(vertex, 0, 1); }";
-
-  const char *fs_code =
-      "#version 450 core\n"
-      "uniform sampler2D tex;\n"
-      "out vec4 fragment_color;\n"
-      "void main() { fragment_color = texture(tex, gl_FragCoord.xy); }";
+  ShaderProgram sp_;
 };
 
 }  // namespace graphics

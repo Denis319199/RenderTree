@@ -1,13 +1,16 @@
 #ifndef WINDOW_HPP
 #define WINDOW_HPP
 
+#include <chrono>
 #include <iostream>
-#include <mutex>
 
 #include "RenderTree.hpp"
+#include "TreeBlock.hpp"
 #include "Usings.hpp"
 
 namespace graphics {
+
+using namespace std::literals::chrono_literals;
 
 class Window {
  public:
@@ -15,6 +18,8 @@ class Window {
     if (!glfwInit()) {
       exit(1);
     }
+
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);  // FIXME!
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
@@ -68,11 +73,16 @@ class Window {
 
   void StartLoop() {
     while (!glfwWindowShouldClose(window_ptr_)) {
+      auto beg_time{std::chrono::high_resolution_clock::now()};
       if (render_tree_->Render()) {
         glfwSwapBuffers(window_ptr_);
       }
 
-      glfwPollEvents();
+      while (std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::high_resolution_clock::now() - beg_time) <
+             kTimeBetweenFrames) {
+        glfwPollEvents();
+      }
     }
   }
 
@@ -80,7 +90,7 @@ class Window {
     render_tree_->InsertAtRoot(tree_block);
   }
 
-  // private: FIXME!
+ private:
   static void WindowCloseCallback(GLFWwindow *window) {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
   }
@@ -115,7 +125,7 @@ class Window {
 
   static void CursorEnterCallback(GLFWwindow *window, int entered) {
     if (!entered) {
-      GetWindowObject(window)->render_tree_->ProcessCursorEnter();
+      GetWindowObject(window)->render_tree_->ProcessCursorLeaveWindow();
     }
   }
 
@@ -130,6 +140,8 @@ class Window {
   inline static Vector<Window *> windows_vec_{};
   GLFWwindow *window_ptr_;
   RenderTree *render_tree_;
+
+  constexpr static std::chrono::milliseconds kTimeBetweenFrames{16ms};
 };
 }  // namespace graphics
 

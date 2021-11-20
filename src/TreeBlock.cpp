@@ -2,6 +2,14 @@
 
 namespace graphics {
 
+TreeBlock::TreeBlock(TreeBlockHandlerBase *handler) noexcept
+    : area_{},
+      children_list_{},
+      render_tree_{},
+      handler_{handler},
+      hover_{},
+      is_hover_activated_{} {}
+
 void TreeBlock::SetRelativeNormalizedWidth(float width) noexcept {
   if (parent_) {
     if (width > 1.f) {
@@ -62,11 +70,9 @@ void TreeBlock::SetRelativeNormalizedPosY(float pos_y) noexcept {
   }
 }
 
-void TreeBlock::ActivateHoverRerender() noexcept { is_hover_activated_ = true; }
+void TreeBlock::EnableHoverRerender() noexcept { is_hover_activated_ = true; }
 
-void TreeBlock::DisactivateHoverRerender() noexcept {
-  is_hover_activated_ = false;
-}
+void TreeBlock::DisableHoverRerender() noexcept { is_hover_activated_ = false; }
 
 [[nodiscard]] bool TreeBlock::IsHovered() const noexcept { return hover_; }
 
